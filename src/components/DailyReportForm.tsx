@@ -183,7 +183,7 @@ export default function DailyReportForm() {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [savedDate, setSavedDate] = useState("");
-  const [obsidianUrl, setObsidianUrl] = useState("");
+  const [savedMarkdown, setSavedMarkdown] = useState("");
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const draftLoadedRef = useRef(false);
 
@@ -256,26 +256,21 @@ export default function DailyReportForm() {
     };
 
     try {
+      // iOS Chrome (WKWebView) では string body が ByteString 変換され日本語でエラーになるため
+      // Blob で送信してバイナリとして扱わせる
+      const bodyBlob = new Blob([JSON.stringify(report)], {
+        type: "application/json",
+      });
       const res = await fetch("/api/save", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(report),
+        body: bodyBlob,
       });
       const data = (await res.json()) as { success?: boolean; error?: string };
       if (!res.ok || !data.success) throw new Error(data.error ?? "送信失敗");
 
       clearDraft();
       setSavedDate(date);
-
-      // obsidian://new URL を生成してステートに保存（<a href> でユーザータップ時に開く）
-      const markdown = generateMarkdown(report);
-      const newObsidianUrl =
-        `obsidian://new` +
-        `?vault=${encodeURIComponent(OBSIDIAN_VAULT)}` +
-        `&file=${encodeURIComponent(`Daily/${date}`)}` +
-        `&content=${encodeURIComponent(markdown)}` +
-        `&overwrite=true`;
-      setObsidianUrl(newObsidianUrl);
+      setSavedMarkdown(generateMarkdown(report));
       setStatus("success");
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "送信に失敗しました");
@@ -301,23 +296,36 @@ export default function DailyReportForm() {
     setLearningContent("");
     setLearningDuration("");
     setErrorMessage("");
+    setSavedMarkdown("");
     setShowDraftBanner(false);
   }
 
   // ---- 送信成功 ----
   if (status === "success") {
+    // obsidian:// URL に日本語文字を含めると iOS Chrome の ByteString エラーが出るため
+    // ・vault / content パラメータは省略
+    // ・マークダウンはクリップボードにコピーして Obsidian で貼り付けてもらう
+    function handleOpenInObsidian() {
+      // クリップボードコピーを fire-and-forget（user gesture 中に開始）
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(savedMarkdown).catch(() => {});
+      }
+      // obsidian://open は ASCII のみなので ByteString エラーが起きない
+      window.location.href = "obsidian://open";
+    }
+
     return (
       <div className="flex flex-col items-center gap-6 py-16 text-center">
         <div className="text-6xl">✅</div>
         <p className="text-xl font-bold text-green-700">保存しました</p>
         <p className="text-sm text-gray-500">{savedDate} の日報を GitHub にコミットしました</p>
-        {/* <a href> でユーザータップ時に obsidian://new へ遷移（iOS Chrome 対応） */}
-        <a
-          href={obsidianUrl}
+        <p className="text-xs text-gray-400">「Obsidian で開く」をタップするとクリップボードにマークダウンをコピーします</p>
+        <button
+          onClick={handleOpenInObsidian}
           className="flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-purple-600 text-base font-bold text-white shadow active:opacity-80"
         >
           🔮 Obsidian で開く
-        </a>
+        </button>
         <button
           onClick={handleReset}
           className="rounded-2xl border border-gray-300 bg-white px-8 py-3 text-gray-700 active:opacity-70"
