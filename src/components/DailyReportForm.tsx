@@ -183,6 +183,7 @@ export default function DailyReportForm() {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [savedDate, setSavedDate] = useState("");
+  const [obsidianUrl, setObsidianUrl] = useState("");
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const draftLoadedRef = useRef(false);
 
@@ -265,16 +266,17 @@ export default function DailyReportForm() {
 
       clearDraft();
       setSavedDate(date);
-      setStatus("success");
 
+      // obsidian://new URL を生成してステートに保存（<a href> でユーザータップ時に開く）
       const markdown = generateMarkdown(report);
-      const obsidianUrl =
+      const newObsidianUrl =
         `obsidian://new` +
         `?vault=${encodeURIComponent(OBSIDIAN_VAULT)}` +
         `&file=${encodeURIComponent(`Daily/${date}`)}` +
         `&content=${encodeURIComponent(markdown)}` +
         `&overwrite=true`;
-      window.location.href = obsidianUrl;
+      setObsidianUrl(newObsidianUrl);
+      setStatus("success");
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "送信に失敗しました");
       setStatus("error");
@@ -304,19 +306,14 @@ export default function DailyReportForm() {
 
   // ---- 送信成功 ----
   if (status === "success") {
-    const obsidianUrl =
-      `obsidian://new` +
-      `?vault=${encodeURIComponent(OBSIDIAN_VAULT)}` +
-      `&file=${encodeURIComponent(`Daily/${savedDate}`)}` +
-      `&content=${encodeURIComponent("")}` +
-      `&overwrite=false`;
     return (
       <div className="flex flex-col items-center gap-6 py-16 text-center">
         <div className="text-6xl">✅</div>
         <p className="text-xl font-bold text-green-700">保存しました</p>
         <p className="text-sm text-gray-500">{savedDate} の日報を GitHub にコミットしました</p>
+        {/* <a href> でユーザータップ時に obsidian://new へ遷移（iOS Chrome 対応） */}
         <a
-          href={`obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT)}&file=${encodeURIComponent(`Daily/${savedDate}`)}`}
+          href={obsidianUrl}
           className="flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-purple-600 text-base font-bold text-white shadow active:opacity-80"
         >
           🔮 Obsidian で開く
