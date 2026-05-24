@@ -1,13 +1,25 @@
 import type { DailyReport } from "@/types/report";
 import { generateMarkdown } from "@/lib/markdown";
 
+/**
+ * BOM（U+FEFF）を除去して環境変数を取得する。
+ * PowerShell の pipe 経由で vercel env add した場合に BOM が混入し、
+ * HTTP ヘッダーの ByteString 変換でエラーになるケースに対処。
+ */
+function getEnvClean(key: string): string | undefined {
+  const val = process.env[key];
+  if (!val) return undefined;
+  // PowerShell pipe 経由で設定した場合に先頭に BOM (U+FEFF) が混入するケースに対処
+  return val.charCodeAt(0) === 0xfeff ? val.slice(1) : val;
+}
+
 /** GitHub Contents API 経由でファイルを作成 or 上書き */
 export async function saveReportToGitHub(report: DailyReport): Promise<void> {
-  const token = process.env.GITHUB_TOKEN;
-  const owner = process.env.GITHUB_OWNER;
-  const repo = process.env.GITHUB_REPO;
-  const branch = process.env.GITHUB_BRANCH ?? "main";
-  const vaultPath = process.env.VAULT_DAILY_PATH ?? "Daily";
+  const token = getEnvClean("GITHUB_TOKEN");
+  const owner = getEnvClean("GITHUB_OWNER");
+  const repo = getEnvClean("GITHUB_REPO");
+  const branch = getEnvClean("GITHUB_BRANCH") ?? "main";
+  const vaultPath = getEnvClean("VAULT_DAILY_PATH") ?? "Daily";
 
   if (!token || !owner || !repo) {
     throw new Error(
