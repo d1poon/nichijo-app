@@ -31,12 +31,19 @@ async function fetchFileContent(
   return Buffer.from(data.content.replace(/\n/g, ""), "base64").toString("utf-8");
 }
 
+/** BOM (U+FEFF) を除去して環境変数を取得 */
+function getEnvClean(key: string): string | undefined {
+  const val = process.env[key];
+  if (!val) return undefined;
+  return val.charCodeAt(0) === 0xfeff ? val.slice(1) : val;
+}
+
 export async function GET(request: NextRequest) {
-  const token = process.env.GITHUB_TOKEN;
-  const owner = process.env.GITHUB_OWNER;
-  const repo = process.env.GITHUB_REPO;
-  const branch = process.env.GITHUB_BRANCH ?? "master";
-  const vaultPath = process.env.VAULT_DAILY_PATH ?? "Daily";
+  const token = getEnvClean("GITHUB_TOKEN");
+  const owner = getEnvClean("GITHUB_OWNER");
+  const repo = getEnvClean("GITHUB_REPO");
+  const branch = getEnvClean("GITHUB_BRANCH") ?? "master";
+  const vaultPath = getEnvClean("VAULT_DAILY_PATH") ?? "Daily";
 
   if (!token || !owner || !repo) {
     return NextResponse.json(
