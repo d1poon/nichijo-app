@@ -12,7 +12,6 @@ import {
   type DailyReport,
 } from "@/types/report";
 import { saveDraft, loadDraft, clearDraft, hasMeaningfulDraft } from "@/lib/draft";
-import { generateMarkdown } from "@/lib/markdown";
 import { getJapaneseHolidayName } from "@/lib/holidays";
 
 // ---- 曜日テーマ（B2） ----
@@ -162,8 +161,6 @@ function WorkChips({
 type Status = "idle" | "loading" | "success" | "error";
 type Tab = "am" | "pm";
 
-const OBSIDIAN_VAULT = process.env.NEXT_PUBLIC_OBSIDIAN_VAULT ?? "ai脳";
-
 export default function DailyReportForm() {
   const [date, setDate] = useState(todayString());
   const [isDayOff, setIsDayOff] = useState(false);
@@ -183,7 +180,6 @@ export default function DailyReportForm() {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [savedDate, setSavedDate] = useState("");
-  const [savedMarkdown, setSavedMarkdown] = useState("");
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const draftLoadedRef = useRef(false);
 
@@ -270,7 +266,6 @@ export default function DailyReportForm() {
 
       clearDraft();
       setSavedDate(date);
-      setSavedMarkdown(generateMarkdown(report));
       setStatus("success");
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "送信に失敗しました");
@@ -296,36 +291,22 @@ export default function DailyReportForm() {
     setLearningContent("");
     setLearningDuration("");
     setErrorMessage("");
-    setSavedMarkdown("");
     setShowDraftBanner(false);
   }
 
   // ---- 送信成功 ----
   if (status === "success") {
-    // obsidian:// URL に日本語文字を含めると iOS Chrome の ByteString エラーが出るため
-    // ・vault / content パラメータは省略
-    // ・マークダウンはクリップボードにコピーして Obsidian で貼り付けてもらう
-    function handleOpenInObsidian() {
-      // クリップボードコピーを fire-and-forget（user gesture 中に開始）
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(savedMarkdown).catch(() => {});
-      }
-      // obsidian://open は ASCII のみなので ByteString エラーが起きない
-      window.location.href = "obsidian://open";
-    }
-
     return (
       <div className="flex flex-col items-center gap-6 py-16 text-center">
         <div className="text-6xl">✅</div>
         <p className="text-xl font-bold text-green-700">保存しました</p>
-        <p className="text-sm text-gray-500">{savedDate} の日報を GitHub にコミットしました</p>
-        <p className="text-xs text-gray-400">「Obsidian で開く」をタップするとクリップボードにマークダウンをコピーします</p>
-        <button
-          onClick={handleOpenInObsidian}
-          className="flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-purple-600 text-base font-bold text-white shadow active:opacity-80"
+        <p className="text-sm text-gray-500">{savedDate} の日報を GitHub に保存しました</p>
+        <a
+          href="/stats"
+          className="flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-blue-600 text-base font-bold text-white shadow active:opacity-80"
         >
-          🔮 Obsidian で開く
-        </button>
+          📊 週次集計を見る
+        </a>
         <button
           onClick={handleReset}
           className="rounded-2xl border border-gray-300 bg-white px-8 py-3 text-gray-700 active:opacity-70"
